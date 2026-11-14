@@ -3,7 +3,7 @@
 const nodemailer = require('nodemailer');
 let tx = null;
 
-const configured = () => !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) && !/your-16|app-password|xxxx|paste/i.test(process.env.SMTP_PASS);
+const configured = () => !!process.env.BREVO_API_KEY || !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) && !/your-16|app-password|xxxx|paste/i.test(process.env.SMTP_PASS);
 const siteUrl = () => (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0].trim() : 'http://localhost:5173').replace(/\/$/, '');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const transport = () => {
@@ -27,11 +27,27 @@ ${button ? `<tr><td style="padding:8px 0 16px"><a href="${button.url}" style="ba
 <tr><td style="font-size:12px;color:#64748b;padding-top:18px">${esc(footer || 'You are receiving this email because you have an AbilityConnect SA account.')}</td></tr>
 </table></td></tr></table></body></html>`;
 
+// Render's free plan blocks the normal email ports (SMTP). Brevo's web API works over HTTPS, so it is not blocked.
+// Set BREVO_API_KEY (and BREVO_SENDER = the email address you verified in Brevo). If BREVO_API_KEY is empty, SMTP is used as before.
+async function sendViaBrevo({ to, subject, text, html }) {
+  const sender = process.env.BREVO_SENDER || process.env.MAIL_FROM || process.env.SMTP_USER;
+  const m = String(sender || '').match(/^(.*)<(.+)>$/);
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({ sender: { name: (m ? m[1].trim() : '') || 'AbilityConnect SA', email: (m ? m[2] : sender).trim() }, to: [{ email: to }], subject, htmlContent: html, textContent: text }),
+  });
+  if (!res.ok) throw new Error('Brevo refused the email (' + res.status + '): ' + (await res.text()).slice(0, 300));
+  console.log(`EMAIL SENT via Brevo to ${to}: ${subject}`);
+  return { sent: true };
+}
+
 async function sendMail({ to, subject, text, html, bulk }) {
   if (!configured()) {
     console.log(`\n[EMAIL IS NOT SET UP YET: add SMTP_USER and a real SMTP_PASS to backend/.env]\nTo: ${to}\nSubject: ${subject}\n${text}\n`);
     return { sent: false, reason: 'not_configured' };
   }
+  if (process.env.BREVO_API_KEY) return sendViaBrevo({ to, subject, text, html });
   const headers = bulk ? { 'List-Unsubscribe': `<${siteUrl()}/>`, Precedence: 'bulk' } : {};
   const info = await transport().sendMail({ from: from(), to, subject, text, html, replyTo: process.env.MAIL_REPLY_TO || process.env.SMTP_USER, headers });
   console.log(`EMAIL SENT to ${to} (${(info.accepted || []).length ? 'accepted' : 'REJECTED'}): ${subject}`);
@@ -41,6 +57,7 @@ async function sendMail({ to, subject, text, html, bulk }) {
 
 async function verify() {
   if (!configured()) { console.log('EMAIL: not set up yet (SMTP_PASS is missing or still a placeholder). Emails are printed here instead of being sent.'); return false; }
+  if (process.env.BREVO_API_KEY) { console.log('EMAIL READY: sending through Brevo'); return true; }
   try { await transport().verify(); console.log('EMAIL READY: sending as ' + from()); return true; }
   catch (e) { console.error('EMAIL PROBLEM: ' + e.message + '\n   For Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_USER=your Gmail address, SMTP_PASS=a 16-letter App Password.'); return false; }
 }
