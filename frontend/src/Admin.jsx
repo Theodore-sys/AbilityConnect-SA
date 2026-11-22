@@ -194,6 +194,31 @@ function Users({ token, me, run, del }) {
   );
 }
 
+function Interpreters({ token, run }) {
+  const [items, reload] = useList('/api/admin/interpreters', token);
+  const [f, setF] = useState({ name: '', email: '', password: '' });
+  return (
+    <>
+      <p className="small">Interpreters have their own portal at <strong>/#interpreter</strong>. They can only watch sign videos and reply. They cannot see users, reports or settings. Type the email of an existing user to give them interpreter access, or fill in a name and a password to create a new interpreter account.</p>
+      <div className="card">
+        <h3>Add an interpreter</h3>
+        <Field label="Email" id="ie1"><input id="ie1" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+        <Field label="Name (only for a new account)" id="in1"><input id="in1" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+        <Field label="Password (only for a new account, at least 10 characters)" id="ip1"><input id="ip1" type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></Field>
+        <button className="btn gold" disabled={!f.email} onClick={() => run(() => api('/api/admin/interpreters', { method: 'POST', token, body: f }), () => { setF({ name: '', email: '', password: '' }); reload(); })}>Add interpreter</button>
+      </div>
+      <h3>Interpreters ({items.length})</h3>
+      {items.length === 0 && <p>No interpreters yet.</p>}
+      {items.map((u) => (
+        <div className="card line" key={u.id}>
+          <span><strong>{u.name}</strong>{u.disabled && <span className="tag warn">Suspended</span>}<br /><span className="small">{u.email} · {u.answered} videos answered</span></span>
+          <button className="btn alt sm" onClick={() => window.confirm('Remove interpreter access for ' + u.name + '?') && run(() => api('/api/admin/interpreters/' + u.id + '/remove', { method: 'PATCH', token }), reload)}>Remove access</button>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function SiteSettings({ token, run }) {
   const [s, setS] = useState({ welcome: '', announcement: '', contact_email: '' });
   const [mail, setMail] = useState('');
@@ -433,7 +458,7 @@ export default function Admin({ token, me }) {
   const [tab, setTab] = useState('overview'); const [msg, setMsg] = useState('');
   const run = async (fn, after) => { try { await fn(); setMsg('Saved.'); if (after) after(); } catch (e) { setMsg(e.message); } };
   const del = (path, label, after) => { if (window.confirm('Delete ' + label + '? This cannot be undone.')) run(() => api(path, { method: 'DELETE', token }), after); };
-  const tabs = [['overview', 'Overview'], ['analytics', 'Reports and exports'], ['reports', 'Accessibility reports'], ['sign', 'Sign interpreter queue'], ['places', 'Places and support'], ['verify', 'Verify places'], ['import', 'Import places (CSV)'], ['opps', 'Education and jobs'],
+  const tabs = [['overview', 'Overview'], ['analytics', 'Reports and exports'], ['reports', 'Accessibility reports'], ['sign', 'Sign interpreter queue'], ['interp', 'Interpreters'], ['places', 'Places and support'], ['verify', 'Verify places'], ['import', 'Import places (CSV)'], ['opps', 'Education and jobs'],
     ['courses', 'Courses'], ['lessons', 'Lessons'], ['questions', 'Exam questions'], ['resources', 'Learning resources'],
     ['notes', 'Announcements'], ['help', 'Quick help'], ['feedback', 'Feedback'], ['users', 'Users'], ['security', 'Security log'], ['settings', 'Settings']];
   const common = { token, run, del };
@@ -447,6 +472,7 @@ export default function Admin({ token, me }) {
       {tab === 'overview' && <Overview token={token} />}
       {tab === 'reports' && <Reports {...common} />}
       {tab === 'sign' && <SignQueue {...common} />}
+      {tab === 'interp' && <Interpreters {...common} />}
       {tab === 'verify' && <VerifyQueue {...common} />}
       {tab === 'security' && <SecurityLog token={token} />}
       {tab === 'import' && <PlacesImport {...common} />}

@@ -4,6 +4,7 @@ import { Auth, Dashboard, Directory, Opps, Report, QuickHelp, AccessSettings, Pr
 import { Education } from './Academy.jsx';
 import Communicate from './Communicate.jsx';
 import Organiser from './Organiser.jsx';
+import Interpreter from './Interpreter.jsx';
 
 const BANNERS = {
   education: { slot: 'education', title: 'Education and training', text: 'Learnerships, skills programmes, bursaries and courses, with accessibility details.', plain: 'find ways to learn and grow.' },
@@ -86,6 +87,7 @@ export default function App() {
   // Organisers (administrators) have their own portal, so they are sent there instead of the public site
   const onAuth = (r) => {
     if (r.user.role === 'admin') { localStorage.setItem('ac_admin_auth', JSON.stringify(r)); window.location.hash = 'organiser'; return; }
+    if (r.user.role === 'interpreter') { localStorage.setItem('ac_int_auth', JSON.stringify(r)); window.location.hash = 'interpreter'; return; }
     setAuth(r); localStorage.setItem('ac_auth', JSON.stringify(r)); setNotice('');
   };
   const logout = () => { setAuth({}); localStorage.removeItem('ac_auth'); setNotes([]); setPage('dashboard'); setNotice(''); };
@@ -157,6 +159,7 @@ export default function App() {
   );
 
   if (hash === '#organiser') return <><Organiser />{toolsBar}</>;
+  if (hash === '#interpreter') return <><Interpreter />{toolsBar}</>;
   if (hash.startsWith('#reset=')) {
     return (
       <>
@@ -218,7 +221,7 @@ export default function App() {
           <span className="brand"><span className="logo" aria-hidden="true">✿</span>AbilityConnect SA</span>
           <p>Your ability. Your opportunities. Your access.</p>
           {settings.contact_email && <p className="small">Contact: <a href={'mailto:' + settings.contact_email}>{settings.contact_email}</a></p>}
-          <p className="small">© 2026 AbilityConnect SA. Built for the Samsung Innovation Internship. Listings marked "Not yet verified" should be confirmed with the organisation. <a href="#organiser">Organiser portal</a></p>
+          <p className="small">© 2026 AbilityConnect SA. Built for the Samsung Innovation Internship. Listings marked "Not yet verified" should be confirmed with the organisation. <a href="#organiser">Organiser portal</a> · <a href="#interpreter">Interpreter portal</a></p>
         </div>
       </footer>
       {heard && <div className="heard" role="status" aria-live="polite">{heard} <button className="btn alt sm" onClick={() => setHeard('')}>Close</button></div>}
