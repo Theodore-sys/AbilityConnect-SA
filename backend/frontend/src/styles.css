@@ -303,3 +303,14 @@ img.avatar { object-fit: cover; }
 .profile-head progress { width: 100%; max-width: 360px; height: 10px; }
 .inbox-item.unread { border-left: 6px solid var(--accent); }
 .dot-new { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #dc2626; margin-right: 8px; }
+
+/* ---- Phone menu fix: the sidebar slides in over everything, full height, with a close button ---- */
+.side-close { display: none; place-items: center; width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); cursor: pointer; font-size: 1.2rem; line-height: 1; }
+@media (max-width: 900px) {
+  .side { z-index: 1000; align-self: stretch; top: 0; bottom: 0; height: 100vh; height: 100dvh; width: min(320px, 88vw); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: max(10px, env(safe-area-inset-top)); }
+  .scrim { z-index: 999; }
+  .side-close { display: grid; }
+  .side .lbl, .side-title { position: static; width: auto; height: auto; clip: auto; }
+  body.menu-open { overflow: hidden; }
+  .shell, .shell.slim { position: static; z-index: auto; }
+}
