@@ -1,4 +1,4 @@
-// backend/src/server.js
+﻿// backend/src/server.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -91,6 +91,12 @@ app.get('/api/organisations', auth, wrap(async (req, res) => {
      AND ($2='' OR name ILIKE '%'||$2||'%' OR city ILIKE '%'||$2||'%' OR accessibility ILIKE '%'||$2||'%') ORDER BY name LIMIT 300`, [String(category).slice(0, 60), String(q).slice(0, 80)]);
   res.json(rows);
 }));
+// Dashboard numbers: the real total (not capped at 300) and the three newest places
+app.get('/api/places-summary', auth, wrap(async (_req, res) => {
+  const total = (await pool.query('SELECT COUNT(*)::int AS n FROM organisations')).rows[0].n;
+  const newest = (await pool.query("SELECT * FROM organisations WHERE category <> 'Support organisation' ORDER BY id DESC LIMIT 3")).rows;
+  res.json({ total, newest });
+}));
 app.post('/api/organisations', auth, admin, wrap(async (req, res) => {
   const o = req.body;
   if (!need(res, o.name, o.category)) return;
@@ -114,7 +120,7 @@ app.post('/api/opportunities', auth, admin, wrap(async (req, res) => {
   const { rows } = await pool.query(
     'INSERT INTO opportunities(title,type,organisation,location,description,accessibility_notes,closing_date) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
     [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null]);
-  if (app.locals.notify) app.locals.notify.broadcast({ title: 'New opportunity: ' + rows[0].title, body: [rows[0].type, rows[0].organisation, rows[0].location].filter(Boolean).join(' · '), url: '/' });
+  if (app.locals.notify) app.locals.notify.broadcast({ title: 'New opportunity: ' + rows[0].title, body: [rows[0].type, rows[0].organisation, rows[0].location].filter(Boolean).join(' Â· '), url: '/' });
   res.status(201).json(rows[0]);
 }));
 app.delete('/api/opportunities/:id', auth, admin, wrap(async (req, res) => { await pool.query('DELETE FROM opportunities WHERE id=$1', [req.params.id]); res.json({ ok: true }); }));

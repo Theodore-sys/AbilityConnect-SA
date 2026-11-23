@@ -15,6 +15,11 @@ module.exports = (app, pool) => {
       id SERIAL PRIMARY KEY, user_id INT REFERENCES users(id) ON DELETE CASCADE, video TEXT, duration INT,
       target_lang TEXT NOT NULL DEFAULT 'en', status TEXT NOT NULL DEFAULT 'waiting', translation TEXT,
       translated_by INT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT now(), translated_at TIMESTAMPTZ)`);
+    // Interpreter role + claiming (so two interpreters do not translate the same video)
+    await run("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check").catch(() => {});
+    await run("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('user','admin','interpreter'))").catch(() => {});
+    await run('ALTER TABLE sign_requests ADD COLUMN IF NOT EXISTS claimed_by INT REFERENCES users(id) ON DELETE SET NULL').catch(() => {});
+    await run('ALTER TABLE sign_requests ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ').catch(() => {});
     // Privacy: videos are deleted after 14 days even if nobody translated them
     const purge = () => run("UPDATE sign_requests SET video=NULL WHERE video IS NOT NULL AND created_at < now() - interval '14 days'").catch(() => {});
     purge(); setInterval(purge, 6 * 3600 * 1000);
@@ -56,6 +61,66 @@ module.exports = (app, pool) => {
   }));
   app.delete('/api/admin/sign-requests/:id', auth, admin, h(async (req, res) => {
     await run('DELETE FROM sign_requests WHERE id=$1', [req.params.id]); res.json({ ok: true });
+  }));
+
+  // ---------- Interpreter portal (role "interpreter", or an administrator) ----------
+  const staff = (req, res, next) => (['admin', 'interpreter'].includes(req.user.role) ? next() : res.status(403).json({ error: 'Interpreters only' }));
+  app.get('/api/interpreter/queue', auth, staff, h(async (req, res) => {
+    const waiting = (await run(`SELECT s.id,s.target_lang,s.duration,s.created_at,(s.video IS NOT NULL) AS has_video,split_part(COALESCE(u.name,'Deleted user'),' ',1) AS first_name,
+      s.claimed_by,c.name AS claimed_name,(s.claimed_by=$1) AS mine,(s.claimed_at > now() - interval '15 minutes') AS claim_active
+      FROM sign_requests s LEFT JOIN users u ON u.id=s.user_id LEFT JOIN users c ON c.id=s.claimed_by
+      WHERE s.status='waiting' ORDER BY s.created_at ASC LIMIT 100`, [req.user.id])).rows;
+    const done = (await run(`SELECT id,target_lang,translation,translated_at,created_at FROM sign_requests WHERE translated_by=$1 ORDER BY translated_at DESC LIMIT 30`, [req.user.id])).rows;
+    const st = (await run(`SELECT COUNT(*) FILTER (WHERE translated_at >= date_trunc('day', now()))::int AS today, COUNT(*)::int AS total,
+      COALESCE(round(avg(EXTRACT(EPOCH FROM (translated_at - created_at)) / 60) FILTER (WHERE translated_at >= now() - interval '7 days'))::int, 0) AS avg_minutes
+      FROM sign_requests WHERE translated_by=$1`, [req.user.id])).rows[0];
+    res.json({ waiting, done, stats: st });
+  }));
+  app.post('/api/interpreter/requests/:id/claim', auth, staff, h(async (req, res) => {
+    const r = await run(`UPDATE sign_requests SET claimed_by=$1, claimed_at=now() WHERE id=$2 AND status='waiting'
+      AND (claimed_by IS NULL OR claimed_by=$1 OR claimed_at < now() - interval '15 minutes') RETURNING id`, [req.user.id, req.params.id]);
+    if (!r.rowCount) return res.status(409).json({ error: 'Another interpreter is already working on this video.' });
+    res.json({ ok: true });
+  }));
+  app.post('/api/interpreter/requests/:id/release', auth, staff, h(async (req, res) => {
+    await run("UPDATE sign_requests SET claimed_by=NULL, claimed_at=NULL WHERE id=$1 AND claimed_by=$2 AND status='waiting'", [req.params.id, req.user.id]); res.json({ ok: true });
+  }));
+  app.get('/api/interpreter/requests/:id/video', auth, staff, h(async (req, res) => {
+    const r = (await run('SELECT video FROM sign_requests WHERE id=$1', [req.params.id])).rows[0];
+    if (!r || !r.video) return res.status(404).json({ error: 'This video is no longer available' });
+    res.json({ video: r.video });
+  }));
+  app.patch('/api/interpreter/requests/:id', auth, staff, h(async (req, res) => {
+    const t = String(req.body.translation || '').trim();
+    if (!t) return res.status(400).json({ error: 'Please type the translation' });
+    const upd = await run(`UPDATE sign_requests SET translation=$1, status='translated', video=NULL, translated_by=$2, translated_at=now()
+      WHERE id=$3 AND status='waiting' AND (claimed_by IS NULL OR claimed_by=$2 OR claimed_at < now() - interval '15 minutes') RETURNING user_id`, [t.slice(0, 2000), req.user.id, req.params.id]);
+    if (!upd.rowCount) return res.status(409).json({ error: 'This request was already answered or is being handled by another interpreter.' });
+    if (upd.rows[0].user_id && app.locals.notify) app.locals.notify.toUser(upd.rows[0].user_id, 'Your sign language video was translated', 'Open Communicate, then Sign on video, to read the reply.', '/');
+    res.json({ ok: true });
+  }));
+
+  // ---------- Administrators manage interpreter accounts ----------
+  app.get('/api/admin/interpreters', auth, admin, h(async (_req, res) => {
+    res.json((await run(`SELECT u.id,u.name,u.email,COALESCE(u.disabled,false) AS disabled,
+      (SELECT COUNT(*)::int FROM sign_requests s WHERE s.translated_by=u.id) AS answered FROM users u WHERE u.role='interpreter' ORDER BY u.name`)).rows);
+  }));
+  app.post('/api/admin/interpreters', auth, admin, h(async (req, res) => {
+    const email = String(req.body.email || '').trim().toLowerCase(); const name = String(req.body.name || '').trim(); const password = String(req.body.password || '');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Please enter a valid email address' });
+    const ex = (await run('SELECT id,role FROM users WHERE email=$1', [email])).rows[0];
+    if (ex) {
+      if (ex.role === 'admin') return res.status(400).json({ error: 'That person is an administrator already. Administrators can use the interpreter portal too.' });
+      await run("UPDATE users SET role='interpreter' WHERE id=$1", [ex.id]); return res.json({ ok: true, existing: true });
+    }
+    const problem = require('./policy').passwordProblem(password, email);
+    if (!name) return res.status(400).json({ error: 'Please enter the interpreter\'s name' });
+    if (problem) return res.status(400).json({ error: problem });
+    await run("INSERT INTO users(name,email,password_hash,role) VALUES($1,$2,$3,'interpreter')", [name.slice(0, 80), email, await require('bcryptjs').hash(password, 12)]);
+    res.json({ ok: true });
+  }));
+  app.patch('/api/admin/interpreters/:id/remove', auth, admin, h(async (req, res) => {
+    await run("UPDATE users SET role='user', sessions_valid_from=now() WHERE id=$1 AND role='interpreter'", [req.params.id]); res.json({ ok: true });
   }));
 
   // ---------- Optional text translation (needs a Google Cloud Translation API key in .env) ----------
