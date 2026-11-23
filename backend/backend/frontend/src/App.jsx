@@ -41,6 +41,7 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('ac_side') === '1');
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => { localStorage.setItem('ac_side', collapsed ? '1' : '0'); }, [collapsed]);
+  useEffect(() => { document.body.classList.toggle('menu-open', menuOpen); return () => document.body.classList.remove('menu-open'); }, [menuOpen]);
   const [settings, setSettings] = useState({});
   const [notes, setNotes] = useState([]);
   const [seen, setSeen] = useState(() => Number(localStorage.getItem('ac_seen')) || 0);
@@ -188,6 +189,7 @@ export default function App() {
           <aside className={'side' + (menuOpen ? ' open' : '')}>
             <div className="side-top">
               <span className="side-title">Menu</span>
+              <button className="side-close" onClick={() => setMenuOpen(false)} aria-label="Close the menu">✕</button>
               <button className="side-toggle" onClick={() => setCollapsed(!collapsed)} aria-pressed={collapsed} aria-label={collapsed ? 'Expand the menu' : 'Collapse the menu'}><Icon name={collapsed ? 'chevR' : 'chevL'} /></button>
             </div>
             <nav aria-label="Main menu">
