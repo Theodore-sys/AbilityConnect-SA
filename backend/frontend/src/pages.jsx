@@ -120,7 +120,8 @@ export function ResetPassword({ token }) {
 /* ---------------- Dashboard ---------------- */
 export function Dashboard({ user, token, go, notes, seen, markRead, settings }) {
   const [ops] = useList('/api/opportunities', token);
-  const [orgs] = useList('/api/organisations', token);
+  const [placeSum, setPlaceSum] = useState({ total: 0, newest: [] });
+  useEffect(() => { api('/api/places-summary', { token }).then(setPlaceSum).catch(() => {}); }, [token]);
   const [sp] = useList('/api/saved-places', token);
   const [so] = useList('/api/saved', token);
   const [reps] = useList('/api/reports/mine', token);
@@ -128,7 +129,7 @@ export function Dashboard({ user, token, go, notes, seen, markRead, settings }) 
   const open = reps.filter((r) => !['Resolved', 'Closed'].includes(r.status)).length;
   const intro = settings.welcome || 'Find accessible places, discover opportunities and get the support you need.';
   const summary = `Hello ${user.name}. ${intro} You have ${unread} new announcements, ${sp.length + so.length} saved items and ${open} open reports.`;
-  const stats = [[unread, 'New announcements', '📢'], [sp.length + so.length, 'Saved items', '⭐'], [open, 'Open reports', '📣'], [orgs.length, 'Places and services listed', '📍']];
+  const stats = [[unread, 'New announcements', '📢'], [sp.length + so.length, 'Saved items', '⭐'], [open, 'Open reports', '📣'], [placeSum.total, 'Places and services listed', '📍']];
   const tiles = [
     ['places', '📍', 'Accessible places', 'Check ramps, lifts and toilets before you travel.'],
     ['education', '🎓', 'Education & training', 'Learnerships, courses and bursaries.'],
@@ -139,7 +140,7 @@ export function Dashboard({ user, token, go, notes, seen, markRead, settings }) 
     ['access', '♿', 'Accessibility settings', 'Make the platform work for you.'],
   ];
   const newestOps = [...ops].sort((a, b) => b.id - a.id).slice(0, 3);
-  const newestPlaces = orgs.filter((o) => o.category !== 'Support organisation').sort((a, b) => b.id - a.id).slice(0, 3);
+  const newestPlaces = placeSum.newest;
   return (
     <>
       <section className="hero">

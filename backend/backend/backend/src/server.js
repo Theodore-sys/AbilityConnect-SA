@@ -91,6 +91,12 @@ app.get('/api/organisations', auth, wrap(async (req, res) => {
      AND ($2='' OR name ILIKE '%'||$2||'%' OR city ILIKE '%'||$2||'%' OR accessibility ILIKE '%'||$2||'%') ORDER BY name LIMIT 300`, [String(category).slice(0, 60), String(q).slice(0, 80)]);
   res.json(rows);
 }));
+// Dashboard numbers: the real total (not capped at 300) and the three newest places
+app.get('/api/places-summary', auth, wrap(async (_req, res) => {
+  const total = (await pool.query('SELECT COUNT(*)::int AS n FROM organisations')).rows[0].n;
+  const newest = (await pool.query("SELECT * FROM organisations WHERE category <> 'Support organisation' ORDER BY id DESC LIMIT 3")).rows;
+  res.json({ total, newest });
+}));
 app.post('/api/organisations', auth, admin, wrap(async (req, res) => {
   const o = req.body;
   if (!need(res, o.name, o.category)) return;
