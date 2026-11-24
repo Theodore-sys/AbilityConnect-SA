@@ -75,7 +75,7 @@ const CFG = {
     sub: (x) => `${x.type} · ${x.organisation || ''} · closes ${x.closing_date ? x.closing_date.slice(0, 10) : 'n/a'}`,
     fields: [
       { k: 'title', l: 'Title', req: true }, { k: 'type', l: 'Type', t: 'select', o: [...EDU_TYPES, ...JOB_TYPES] }, { k: 'organisation', l: 'Organisation' }, { k: 'location', l: 'Location' },
-      { k: 'closing_date', l: 'Closing date', t: 'date' }, { k: 'description', l: 'Description', t: 'area' }, { k: 'accessibility_notes', l: 'Accessibility and workplace arrangements', t: 'area' },
+      { k: 'closing_date', l: 'Closing date', t: 'date' }, { k: 'apply_url', l: 'Apply link (https://...)' }, { k: 'apply_email', l: 'Apply email address' }, { k: 'description', l: 'Description', t: 'area' }, { k: 'accessibility_notes', l: 'Accessibility and workplace arrangements', t: 'area' },
     ],
   },
   resources: {

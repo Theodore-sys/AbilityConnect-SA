@@ -359,7 +359,8 @@ export function Opps({ token, types, banner, showResources }) {
   const [saved, reloadSaved] = useList('/api/saved', token);
   const [q, setQ] = useState(''); const [type, setType] = useState('');
   const ids = saved.map((s) => s.id);
-  const list = ops.filter((o) => types.includes(o.type)).filter((o) => !type || o.type === type)
+  const today = new Date().toISOString().slice(0, 10);
+  const list = ops.filter((o) => types.includes(o.type)).filter((o) => !o.closing_date || String(o.closing_date).slice(0, 10) >= today).filter((o) => !type || o.type === type)
     .filter((o) => !q || [o.title, o.organisation, o.location, o.description, o.accessibility_notes].join(' ').toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => b.id - a.id);
   const toggle = async (id) => { await api('/api/saved/' + id, { method: ids.includes(id) ? 'DELETE' : 'POST', token }); reloadSaved(); };
@@ -383,6 +384,8 @@ export function Opps({ token, types, banner, showResources }) {
           <p>{o.organisation} · {o.location}</p><p>{o.description}</p>
           <p><strong>Accessibility and workplace arrangements:</strong> {o.accessibility_notes || 'Not confirmed'}</p>
           <div className="btnrow">
+            {safeUrl(o.apply_url) && <a className="btn sm" href={safeUrl(o.apply_url)} target="_blank" rel="noopener noreferrer">Apply online</a>}
+            {o.apply_email && <a className="btn sm" href={'mailto:' + o.apply_email + '?subject=' + encodeURIComponent('Application: ' + o.title)}>Apply by email</a>}
             <button className="btn alt sm" aria-pressed={ids.includes(o.id)} onClick={() => toggle(o.id)}>{ids.includes(o.id) ? '★ Saved' : '☆ Save'}</button>
             <Listen text={`${o.title}. ${o.type} at ${o.organisation}, ${o.location}. ${o.description}. Accessibility: ${o.accessibility_notes || 'not confirmed'}.`} />
           </div>

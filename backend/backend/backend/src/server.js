@@ -119,8 +119,8 @@ app.post('/api/opportunities', auth, admin, wrap(async (req, res) => {
   const o = req.body;
   if (!need(res, o.title, o.type)) return;
   const { rows } = await pool.query(
-    'INSERT INTO opportunities(title,type,organisation,location,description,accessibility_notes,closing_date) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-    [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null]);
+    'INSERT INTO opportunities(title,type,organisation,location,description,accessibility_notes,closing_date,apply_url,apply_email) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+    [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null, o.apply_url || null, o.apply_email || null]);
   if (app.locals.notify) app.locals.notify.broadcast({ title: 'New opportunity: ' + rows[0].title, body: [rows[0].type, rows[0].organisation, rows[0].location].filter(Boolean).join(' · '), url: '/' });
   res.status(201).json(rows[0]);
 }));
@@ -148,7 +148,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // The extra feature files. If one of them has a problem, the server still starts and says which one.
 // (profile must come before ability, because it replaces the older "My profile" routes)
-for (const name of ['notify', 'notifications', 'profile', 'ability', 'academy', 'sign', 'places', 'accounts']) {
+for (const name of ['notify', 'notifications', 'profile', 'ability', 'academy', 'sign', 'places', 'accounts', 'jobs', 'enquiries']) {
   try {
     const feature = require('./' + name);
     if (typeof feature !== 'function') throw new Error('the file does not contain "module.exports = (app, pool) => { ... }". It is probably empty or cut off. Copy the full file again.');

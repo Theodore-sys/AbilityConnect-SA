@@ -32,6 +32,30 @@ function IntGoogle({ onDone, onError }) {
   return <div className="gbtn" ref={box} aria-label="Continue with Google" />;
 }
 
+function Enquiry() {
+  const KINDS = ['Apply to become an interpreter', 'Question about the interpreter portal', 'Problem logging in', 'Employment or job post', 'Other'];
+  const [open, setOpen] = useState(false); const [f, setF] = useState({ kind: KINDS[0], name: '', email: '', message: '' });
+  const [msg, setMsg] = useState(''); const [done, setDone] = useState(false);
+  const send = async (e) => {
+    e.preventDefault(); setMsg('');
+    try { await api('/api/enquiries', { method: 'POST', body: f }); setDone(true); } catch (er) { setMsg(er.message); }
+  };
+  if (done) return <div className="msg" role="status">Thank you. We received your message and will reply to {f.email}.</div>;
+  if (!open) return <p><button type="button" className="btn alt" onClick={() => setOpen(true)}>Not an interpreter yet? Ask a question or apply</button></p>;
+  return (
+    <form className="card" onSubmit={send}>
+      <h3>Ask a question or apply</h3>
+      {msg && <div className="msg" role="alert">{msg}</div>}
+      <Field label="What is this about?" id="eq-k"><select id="eq-k" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{KINDS.map((k) => <option key={k}>{k}</option>)}</select></Field>
+      <Field label="Your name" id="eq-n"><input id="eq-n" required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
+      <Field label="Your email address" id="eq-e"><input id="eq-e" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+      <Field label="Your message (for interpreter applications, tell us about your sign language experience and any qualifications)" id="eq-m"><textarea id="eq-m" rows="5" required value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} /></Field>
+      <p className="small">Please do not send ID numbers or private medical details. You can also email abilityconnectsa@gmail.com.</p>
+      <button className="btn">Send</button>
+    </form>
+  );
+}
+
 export default function Interpreter() {
   const [auth, setAuth] = useState(() => { try { return JSON.parse(localStorage.getItem('ac_int_auth')) || {}; } catch { return {}; } });
   const [f, setF] = useState({ email: '', password: '' }); const [err, setErr] = useState('');
@@ -94,6 +118,7 @@ export default function Interpreter() {
           <div className="or"><span>or</span></div>
           <IntGoogle onDone={googleDone} onError={setErr} />
           <p className="small">Interpreters are added by the organiser. If you cannot log in, ask the organiser to add your email address.</p>
+          <Enquiry />
         </div>
       </main>
     );

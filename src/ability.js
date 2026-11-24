@@ -116,8 +116,8 @@ module.exports = (app, pool) => {
   app.put('/api/opportunities/:id', auth, admin, h(async (req, res) => {
     const o = req.body;
     if (!o.title || !o.type) return res.status(400).json({ error: 'Title and type are required' });
-    await run(`UPDATE opportunities SET title=$1,type=$2,organisation=$3,location=$4,description=$5,accessibility_notes=$6,closing_date=$7 WHERE id=$8`,
-      [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null, req.params.id]);
+    await run(`UPDATE opportunities SET title=$1,type=$2,organisation=$3,location=$4,description=$5,accessibility_notes=$6,closing_date=$7,apply_url=$8,apply_email=$9 WHERE id=$10`,
+      [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null, o.apply_url || null, o.apply_email || null, req.params.id]);
     res.json({ ok: true });
   }));
 

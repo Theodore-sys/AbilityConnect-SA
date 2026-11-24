@@ -45,6 +45,7 @@ module.exports = (app, pool) => {
   app.use('/api/auth/login', limit(15, 25, 'Too many log in attempts. Please wait 15 minutes and try again.'));
   app.use('/api/auth/register', limit(60, 10, 'Too many new accounts from this connection. Please try again later.'));
   app.use('/api/auth/forgot', limit(60, 6, 'Too many password reset requests. Please try again in an hour.'));
+  app.use('/api/enquiries', limit(60, 5, 'Too many messages from this connection. Please try again in an hour.'));
   app.use('/api/auth/reset', limit(60, 10, 'Too many attempts. Please try again later.'));
   app.use('/api/auth/google', limit(15, 30, 'Too many attempts. Please wait a few minutes.'));
   app.use('/api/certificates', limit(1, 30, 'Too many checks. Please wait a minute.'));
