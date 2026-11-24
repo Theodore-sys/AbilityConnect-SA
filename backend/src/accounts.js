@@ -77,6 +77,7 @@ module.exports = (app, pool) => {
     let u = (await run('SELECT id,name,role,disabled FROM users WHERE email=$1', [email])).rows[0];
     if (u && u.role === 'admin') return res.status(403).json({ error: 'Organiser accounts must log in with their email and password in the organiser portal.' });
     if (u && u.disabled) return res.status(403).json({ error: 'This account has been suspended. Please contact the organisers.' });
+    if (req.body.portal === 'interpreter' && (!u || u.role !== 'interpreter')) return res.status(403).json({ error: 'This Google account has not been added as an interpreter. Please ask the organiser to add your email address.' });
     if (!u) {
       const hash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 12); // nobody knows this password; "Forgot password" lets them set one
       u = (await run("INSERT INTO users(name,email,password_hash,role) VALUES($1,$2,$3,'user') RETURNING id,name,role", [String(p.name || email.split('@')[0]).slice(0, 80), email, hash])).rows[0];

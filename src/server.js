@@ -1,4 +1,4 @@
-﻿// backend/src/server.js
+// backend/src/server.js
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
@@ -78,6 +78,7 @@ app.post('/api/auth/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(String(password), rows[0] ? rows[0].password_hash : DUMMY_HASH);
   if (!rows[0] || !ok) { if (sec) sec.failed(em, req.ip, rows[0] && rows[0].id); return res.status(401).json({ error: 'Incorrect email or password' }); }
   if (rows[0].disabled) return res.status(403).json({ error: 'This account has been suspended. Please contact the organisers.' });
+  if (rows[0].role === 'admin' && process.env.ADMIN_EMAIL && em !== process.env.ADMIN_EMAIL.trim().toLowerCase()) return res.status(403).json({ error: 'This account is not allowed to use the organiser portal.' });
   if (sec) { sec.succeeded(em); if (rows[0].role === 'admin') sec.event('admin_login', { userId: rows[0].id, email: em, ip: req.ip }); }
   const u = { id: rows[0].id, name: rows[0].name, role: rows[0].role };
   res.json({ token: sign(u), user: u });
@@ -120,7 +121,7 @@ app.post('/api/opportunities', auth, admin, wrap(async (req, res) => {
   const { rows } = await pool.query(
     'INSERT INTO opportunities(title,type,organisation,location,description,accessibility_notes,closing_date) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
     [o.title, o.type, o.organisation, o.location, o.description, o.accessibility_notes, o.closing_date || null]);
-  if (app.locals.notify) app.locals.notify.broadcast({ title: 'New opportunity: ' + rows[0].title, body: [rows[0].type, rows[0].organisation, rows[0].location].filter(Boolean).join(' Â· '), url: '/' });
+  if (app.locals.notify) app.locals.notify.broadcast({ title: 'New opportunity: ' + rows[0].title, body: [rows[0].type, rows[0].organisation, rows[0].location].filter(Boolean).join(' · '), url: '/' });
   res.status(201).json(rows[0]);
 }));
 app.delete('/api/opportunities/:id', auth, admin, wrap(async (req, res) => { await pool.query('DELETE FROM opportunities WHERE id=$1', [req.params.id]); res.json({ ok: true }); }));

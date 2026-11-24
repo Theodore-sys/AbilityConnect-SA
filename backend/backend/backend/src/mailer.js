@@ -3,7 +3,7 @@
 const nodemailer = require('nodemailer');
 let tx = null;
 
-const configured = () => !!process.env.BREVO_API_KEY || !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) && !/your-16|app-password|xxxx|paste/i.test(process.env.SMTP_PASS);
+const configured = () => !!process.env.GMAIL_RELAY_URL || !!process.env.BREVO_API_KEY || !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) && !/your-16|app-password|xxxx|paste/i.test(process.env.SMTP_PASS);
 const siteUrl = () => (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0].trim() : 'http://localhost:5173').replace(/\/$/, '');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const transport = () => {
@@ -42,11 +42,25 @@ async function sendViaBrevo({ to, subject, text, html }) {
   return { sent: true };
 }
 
+// Free option with no card: a tiny Google Apps Script sends the email from your own Gmail over HTTPS (not blocked on Render).
+// Set GMAIL_RELAY_URL (the web app URL) and GMAIL_RELAY_KEY (the secret you put in the script).
+async function sendViaRelay({ to, subject, text, html }) {
+  const res = await fetch(process.env.GMAIL_RELAY_URL, {
+    method: 'POST', headers: { 'content-type': 'text/plain' },
+    body: JSON.stringify({ key: process.env.GMAIL_RELAY_KEY, to, subject, text, html }),
+  });
+  const body = (await res.text()).trim();
+  if (!res.ok || body !== 'ok') throw new Error('Gmail relay refused the email (' + res.status + '): ' + body.slice(0, 200));
+  console.log(`EMAIL SENT via Gmail relay to ${to}: ${subject}`);
+  return { sent: true };
+}
+
 async function sendMail({ to, subject, text, html, bulk }) {
   if (!configured()) {
     console.log(`\n[EMAIL IS NOT SET UP YET: add SMTP_USER and a real SMTP_PASS to backend/.env]\nTo: ${to}\nSubject: ${subject}\n${text}\n`);
     return { sent: false, reason: 'not_configured' };
   }
+  if (process.env.GMAIL_RELAY_URL) return sendViaRelay({ to, subject, text, html });
   if (process.env.BREVO_API_KEY) return sendViaBrevo({ to, subject, text, html });
   const headers = bulk ? { 'List-Unsubscribe': `<${siteUrl()}/>`, Precedence: 'bulk' } : {};
   const info = await transport().sendMail({ from: from(), to, subject, text, html, replyTo: process.env.MAIL_REPLY_TO || process.env.SMTP_USER, headers });
@@ -57,6 +71,7 @@ async function sendMail({ to, subject, text, html, bulk }) {
 
 async function verify() {
   if (!configured()) { console.log('EMAIL: not set up yet (SMTP_PASS is missing or still a placeholder). Emails are printed here instead of being sent.'); return false; }
+  if (process.env.GMAIL_RELAY_URL) { console.log('EMAIL READY: sending through the Gmail relay'); return true; }
   if (process.env.BREVO_API_KEY) { console.log('EMAIL READY: sending through Brevo'); return true; }
   try { await transport().verify(); console.log('EMAIL READY: sending as ' + from()); return true; }
   catch (e) { console.error('EMAIL PROBLEM: ' + e.message + '\n   For Gmail: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_USER=your Gmail address, SMTP_PASS=a 16-letter App Password.'); return false; }

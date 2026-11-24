@@ -73,6 +73,7 @@ export function Auth({ onAuth, go, notice, settings }) {
           {mode === 'forgot' && <button className="btn" disabled={busy}>{busy ? 'Sending…' : 'Send me a reset link'}</button>}{' '}
           {mode === 'login' && <button type="button" className="btn alt" onClick={() => switchTo('register')}>Need an account?</button>}
           {mode === 'register' && <button type="button" className="btn alt" onClick={() => switchTo('login')}>Have an account?</button>}
+          {mode === 'register' && <p className="small">This sign-up is for people who use the website. Sign language interpreters are added by the organisers, so please contact them if you are an interpreter.</p>}
           {mode === 'forgot' && <button type="button" className="btn alt" onClick={() => switchTo('login')}>Back to log in</button>}
           {mode === 'login' && <p className="small"><button type="button" className="linkbtn" onClick={() => switchTo('forgot')}>Forgot your password?</button></p>}
           {mode !== 'forgot' && <><div className="or"><span>or</span></div><GoogleButton onDone={finish} onError={setErr} /></>}

@@ -78,6 +78,7 @@ app.post('/api/auth/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(String(password), rows[0] ? rows[0].password_hash : DUMMY_HASH);
   if (!rows[0] || !ok) { if (sec) sec.failed(em, req.ip, rows[0] && rows[0].id); return res.status(401).json({ error: 'Incorrect email or password' }); }
   if (rows[0].disabled) return res.status(403).json({ error: 'This account has been suspended. Please contact the organisers.' });
+  if (rows[0].role === 'admin' && process.env.ADMIN_EMAIL && em !== process.env.ADMIN_EMAIL.trim().toLowerCase()) return res.status(403).json({ error: 'This account is not allowed to use the organiser portal.' });
   if (sec) { sec.succeeded(em); if (rows[0].role === 'admin') sec.event('admin_login', { userId: rows[0].id, email: em, ip: req.ip }); }
   const u = { id: rows[0].id, name: rows[0].name, role: rows[0].role };
   res.json({ token: sign(u), user: u });

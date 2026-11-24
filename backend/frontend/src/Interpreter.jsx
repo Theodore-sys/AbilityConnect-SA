@@ -10,6 +10,28 @@ const QUICK = [
 ];
 const ago = (d) => { const m = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : Math.floor(m / 1440) + ' days'; };
 
+function IntGoogle({ onDone, onError }) {
+  const box = useRef(null); const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  useEffect(() => {
+    if (!clientId) return undefined;
+    const start = () => {
+      if (!box.current || !window.google || !window.google.accounts) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (resp) => {
+          try { onDone(await api('/api/auth/google', { method: 'POST', body: { credential: resp.credential, portal: 'interpreter' } })); } catch (e) { onError(e.message); }
+        },
+      });
+      window.google.accounts.id.renderButton(box.current, { theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 300 });
+    };
+    if (window.google && window.google.accounts) start();
+    else { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.defer = true; sc.onload = start; document.head.appendChild(sc); }
+    return undefined;
+  }, [clientId]);
+  if (!clientId) return null;
+  return <div className="gbtn" ref={box} aria-label="Continue with Google" />;
+}
+
 export default function Interpreter() {
   const [auth, setAuth] = useState(() => { try { return JSON.parse(localStorage.getItem('ac_int_auth')) || {}; } catch { return {}; } });
   const [f, setF] = useState({ email: '', password: '' }); const [err, setErr] = useState('');
@@ -26,6 +48,10 @@ export default function Interpreter() {
       if (!['interpreter', 'admin'].includes(r.user.role)) { setErr('This portal is for registered sign language interpreters only. Please ask an administrator to give your account interpreter access.'); return; }
       localStorage.setItem('ac_int_auth', JSON.stringify(r)); setAuth(r);
     } catch (er) { setErr(er.message); }
+  };
+  const googleDone = (r) => {
+    if (!['interpreter', 'admin'].includes(r.user.role)) { setErr('This portal is for registered sign language interpreters only. Please ask the organiser to add your email address.'); return; }
+    localStorage.setItem('ac_int_auth', JSON.stringify(r)); setAuth(r);
   };
   const load = useCallback(async () => {
     if (!token) return;
@@ -65,6 +91,9 @@ export default function Interpreter() {
             <button className="btn">Log in</button>{' '}
             <button type="button" className="btn alt" onClick={() => { window.location.hash = ''; }}>Back to the public website</button>
           </form>
+          <div className="or"><span>or</span></div>
+          <IntGoogle onDone={googleDone} onError={setErr} />
+          <p className="small">Interpreters are added by the organiser. If you cannot log in, ask the organiser to add your email address.</p>
         </div>
       </main>
     );

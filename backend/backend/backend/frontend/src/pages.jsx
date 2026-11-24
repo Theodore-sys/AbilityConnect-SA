@@ -73,6 +73,7 @@ export function Auth({ onAuth, go, notice, settings }) {
           {mode === 'forgot' && <button className="btn" disabled={busy}>{busy ? 'Sending…' : 'Send me a reset link'}</button>}{' '}
           {mode === 'login' && <button type="button" className="btn alt" onClick={() => switchTo('register')}>Need an account?</button>}
           {mode === 'register' && <button type="button" className="btn alt" onClick={() => switchTo('login')}>Have an account?</button>}
+          {mode === 'register' && <p className="small">This sign-up is for people who use the website. Sign language interpreters are added by the organisers, so please contact them if you are an interpreter.</p>}
           {mode === 'forgot' && <button type="button" className="btn alt" onClick={() => switchTo('login')}>Back to log in</button>}
           {mode === 'login' && <p className="small"><button type="button" className="linkbtn" onClick={() => switchTo('forgot')}>Forgot your password?</button></p>}
           {mode !== 'forgot' && <><div className="or"><span>or</span></div><GoogleButton onDone={finish} onError={setErr} /></>}
@@ -120,7 +121,8 @@ export function ResetPassword({ token }) {
 /* ---------------- Dashboard ---------------- */
 export function Dashboard({ user, token, go, notes, seen, markRead, settings }) {
   const [ops] = useList('/api/opportunities', token);
-  const [orgs] = useList('/api/organisations', token);
+  const [placeSum, setPlaceSum] = useState({ total: 0, newest: [] });
+  useEffect(() => { api('/api/places-summary', { token }).then(setPlaceSum).catch(() => {}); }, [token]);
   const [sp] = useList('/api/saved-places', token);
   const [so] = useList('/api/saved', token);
   const [reps] = useList('/api/reports/mine', token);
@@ -128,7 +130,7 @@ export function Dashboard({ user, token, go, notes, seen, markRead, settings }) 
   const open = reps.filter((r) => !['Resolved', 'Closed'].includes(r.status)).length;
   const intro = settings.welcome || 'Find accessible places, discover opportunities and get the support you need.';
   const summary = `Hello ${user.name}. ${intro} You have ${unread} new announcements, ${sp.length + so.length} saved items and ${open} open reports.`;
-  const stats = [[unread, 'New announcements', '📢'], [sp.length + so.length, 'Saved items', '⭐'], [open, 'Open reports', '📣'], [orgs.length, 'Places and services listed', '📍']];
+  const stats = [[unread, 'New announcements', '📢'], [sp.length + so.length, 'Saved items', '⭐'], [open, 'Open reports', '📣'], [placeSum.total, 'Places and services listed', '📍']];
   const tiles = [
     ['places', '📍', 'Accessible places', 'Check ramps, lifts and toilets before you travel.'],
     ['education', '🎓', 'Education & training', 'Learnerships, courses and bursaries.'],
@@ -139,7 +141,7 @@ export function Dashboard({ user, token, go, notes, seen, markRead, settings }) 
     ['access', '♿', 'Accessibility settings', 'Make the platform work for you.'],
   ];
   const newestOps = [...ops].sort((a, b) => b.id - a.id).slice(0, 3);
-  const newestPlaces = orgs.filter((o) => o.category !== 'Support organisation').sort((a, b) => b.id - a.id).slice(0, 3);
+  const newestPlaces = placeSum.newest;
   return (
     <>
       <section className="hero">

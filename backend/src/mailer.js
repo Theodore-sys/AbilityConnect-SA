@@ -43,6 +43,7 @@ async function sendViaBrevo({ to, subject, text, html }) {
 }
 
 // Free option with no card: a tiny Google Apps Script sends the email from your own Gmail over HTTPS (not blocked on Render).
+// Set GMAIL_RELAY_URL (the web app URL) and GMAIL_RELAY_KEY (the secret you put in the script).
 async function sendViaRelay({ to, subject, text, html }) {
   const res = await fetch(process.env.GMAIL_RELAY_URL, {
     method: 'POST', headers: { 'content-type': 'text/plain' },
@@ -53,6 +54,7 @@ async function sendViaRelay({ to, subject, text, html }) {
   console.log(`EMAIL SENT via Gmail relay to ${to}: ${subject}`);
   return { sent: true };
 }
+
 async function sendMail({ to, subject, text, html, bulk }) {
   if (!configured()) {
     console.log(`\n[EMAIL IS NOT SET UP YET: add SMTP_USER and a real SMTP_PASS to backend/.env]\nTo: ${to}\nSubject: ${subject}\n${text}\n`);

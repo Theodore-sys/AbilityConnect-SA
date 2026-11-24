@@ -113,10 +113,10 @@ module.exports = (app, pool) => {
       if (ex.role === 'admin') return res.status(400).json({ error: 'That person is an administrator already. Administrators can use the interpreter portal too.' });
       await run("UPDATE users SET role='interpreter' WHERE id=$1", [ex.id]); return res.json({ ok: true, existing: true });
     }
-    const problem = require('./policy').passwordProblem(password, email);
+    const problem = password ? require('./policy').passwordProblem(password, email) : null;
     if (!name) return res.status(400).json({ error: 'Please enter the interpreter\'s name' });
     if (problem) return res.status(400).json({ error: problem });
-    await run("INSERT INTO users(name,email,password_hash,role) VALUES($1,$2,$3,'interpreter')", [name.slice(0, 80), email, await require('bcryptjs').hash(password, 12)]);
+    await run("INSERT INTO users(name,email,password_hash,role) VALUES($1,$2,$3,'interpreter')", [name.slice(0, 80), email, await require('bcryptjs').hash(password || require('crypto').randomBytes(24).toString('hex'), 12)]);
     res.json({ ok: true });
   }));
   app.patch('/api/admin/interpreters/:id/remove', auth, admin, h(async (req, res) => {

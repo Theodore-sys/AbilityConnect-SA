@@ -55,7 +55,7 @@ module.exports = (app, pool) => {
   const status = async (id) => {
     const c = cache.get(id);
     if (c && Date.now() - c.at < 15000) return c.st;
-    const st = (await run('SELECT role, disabled, sessions_valid_from FROM users WHERE id=$1', [id])).rows[0] || null;
+    const st = (await run('SELECT role, disabled, sessions_valid_from, email FROM users WHERE id=$1', [id])).rows[0] || null;
     cache.set(id, { at: Date.now(), st });
     return st;
   };
@@ -69,7 +69,7 @@ module.exports = (app, pool) => {
       await ready.catch(() => {});
       const st = await status(p.id);
       const since = st && st.sessions_valid_from ? Math.floor(new Date(st.sessions_valid_from).getTime() / 1000) : 0;
-      if (!st || st.disabled || st.role !== p.role || p.iat < since) return res.status(401).json({ error: 'Your session has ended. Please log in again.' });
+      if (!st || st.disabled || st.role !== p.role || p.iat < since || (st.role === 'admin' && process.env.ADMIN_EMAIL && String(st.email).toLowerCase() !== process.env.ADMIN_EMAIL.trim().toLowerCase())) return res.status(401).json({ error: 'Your session has ended. Please log in again.' });
       req.secUser = p;
     } catch (e) { return res.status(503).json({ error: 'The service is busy. Please try again in a moment.' }); }
     return next();

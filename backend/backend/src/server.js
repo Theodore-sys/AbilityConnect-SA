@@ -78,6 +78,7 @@ app.post('/api/auth/login', wrap(async (req, res) => {
   const ok = await bcrypt.compare(String(password), rows[0] ? rows[0].password_hash : DUMMY_HASH);
   if (!rows[0] || !ok) { if (sec) sec.failed(em, req.ip, rows[0] && rows[0].id); return res.status(401).json({ error: 'Incorrect email or password' }); }
   if (rows[0].disabled) return res.status(403).json({ error: 'This account has been suspended. Please contact the organisers.' });
+  if (rows[0].role === 'admin' && process.env.ADMIN_EMAIL && em !== process.env.ADMIN_EMAIL.trim().toLowerCase()) return res.status(403).json({ error: 'This account is not allowed to use the organiser portal.' });
   if (sec) { sec.succeeded(em); if (rows[0].role === 'admin') sec.event('admin_login', { userId: rows[0].id, email: em, ip: req.ip }); }
   const u = { id: rows[0].id, name: rows[0].name, role: rows[0].role };
   res.json({ token: sign(u), user: u });
@@ -90,6 +91,12 @@ app.get('/api/organisations', auth, wrap(async (req, res) => {
     `SELECT * FROM organisations WHERE ($1='' OR category=$1)
      AND ($2='' OR name ILIKE '%'||$2||'%' OR city ILIKE '%'||$2||'%' OR accessibility ILIKE '%'||$2||'%') ORDER BY name LIMIT 300`, [String(category).slice(0, 60), String(q).slice(0, 80)]);
   res.json(rows);
+}));
+// Dashboard numbers: the real total (not capped at 300) and the three newest places
+app.get('/api/places-summary', auth, wrap(async (_req, res) => {
+  const total = (await pool.query('SELECT COUNT(*)::int AS n FROM organisations')).rows[0].n;
+  const newest = (await pool.query("SELECT * FROM organisations WHERE category <> 'Support organisation' ORDER BY id DESC LIMIT 3")).rows;
+  res.json({ total, newest });
 }));
 app.post('/api/organisations', auth, admin, wrap(async (req, res) => {
   const o = req.body;
