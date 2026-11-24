@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import PictureTalk from './PictureTalk.jsx';
+import WordHelper from './WordHelper.jsx';
 import { api, speak, stopSpeak, hasVoice, Slot, Field, SA_LANGS, langName, translateText, useList } from './lib.jsx';
 
 const PHRASES = {
@@ -279,8 +281,10 @@ export default function Communicate({ token }) {
       <div className="tabs" role="group" aria-label="Communication options">
         <button aria-pressed={tab === 'talk'} onClick={() => setTab('talk')}>✍️ Write, speak and captions</button>
         <button aria-pressed={tab === 'sign'} onClick={() => setTab('sign')}>🤟 Sign on video</button>
+        <button aria-pressed={tab === 'pics'} onClick={() => setTab('pics')}>🖼️ Pictures (no reading needed)</button>
+        <button aria-pressed={tab === 'words'} onClick={() => setTab('words')}>📖 Word helper</button>
       </div>
-      {tab === 'talk' ? <Talk token={token} /> : <SignTab token={token} />}
+      {tab === 'talk' ? <Talk token={token} /> : tab === 'pics' ? <PictureTalk token={token} /> : tab === 'words' ? <WordHelper token={token} /> : <SignTab token={token} />}
     </>
   );
 }

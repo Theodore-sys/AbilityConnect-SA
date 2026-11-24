@@ -148,7 +148,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 // The extra feature files. If one of them has a problem, the server still starts and says which one.
 // (profile must come before ability, because it replaces the older "My profile" routes)
-for (const name of ['notify', 'notifications', 'profile', 'ability', 'academy', 'sign', 'places', 'accounts', 'jobs', 'enquiries']) {
+for (const name of ['notify', 'notifications', 'profile', 'ability', 'academy', 'sign', 'places', 'accounts', 'jobs', 'enquiries', 'words']) {
   try {
     const feature = require('./' + name);
     if (typeof feature !== 'function') throw new Error('the file does not contain "module.exports = (app, pool) => { ... }". It is probably empty or cut off. Copy the full file again.');
